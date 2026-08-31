@@ -158,9 +158,13 @@ def _add_windows_dll_dirs(path: Path) -> None:
     """Register the library's directory so Windows finds its dependencies."""
     if os.name != "nt":
         return
-    with contextlib.suppress(AttributeError, OSError):
-        # Python < 3.8, or the directory is already registered — harmless.
-        os.add_dll_directory(str(path.parent))
+    # ``os.add_dll_directory`` only exists in typeshed for Windows, so reach it
+    # through getattr to keep mypy happy on Linux/macOS too (we require
+    # Python >= 3.9, where the function exists, but the fallback is harmless).
+    add_dll_directory = getattr(os, "add_dll_directory", None)
+    if add_dll_directory is not None:
+        with contextlib.suppress(OSError):
+            add_dll_directory(str(path.parent))
 
 
 def load() -> ctypes.CDLL | None:
