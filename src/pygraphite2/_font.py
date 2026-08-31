@@ -107,30 +107,21 @@ class GraphiteFont:
         "_sfnt",
     )
 
-    # Explicit attribute types so that :meth:`close` can release them to None
-    # while keeping mypy (strict) happy.
-    _buffer: ctypes.Array[ctypes.c_char] | None
-    _closed: bool
-    _face: Any | None
-    _font: Any | None
-    _get_table: Any | None
-    _handle: c_void_p | None
-    _options: int
-    _sfnt: _Sfnt
-
     def __init__(self, font: FontSource, *, options: int = 0) -> None:
         data = _read_font_bytes(font)
-        self._options = options
-        self._closed = False
-        self._sfnt = _Sfnt(data)
+        self._options: int = options
+        self._closed: bool = False
+        sfnt = _Sfnt(data)
+        self._sfnt: _Sfnt = sfnt
         # Stable, non-moving buffer the native library reads during face creation.
-        self._buffer = ctypes.create_string_buffer(data, len(data))
-        self._handle = ctypes.cast(self._buffer, c_void_p)
-        self._face: Any = None
-        self._font: Any = None
-        self._get_table: Any = None
+        buffer = ctypes.create_string_buffer(data, len(data))
+        self._buffer: ctypes.Array[ctypes.c_char] | None = buffer
+        self._handle: c_void_p | None = ctypes.cast(buffer, c_void_p)
+        self._face: Any | None = None
+        self._font: Any | None = None
+        self._get_table: Any | None = None
 
-        base = ctypes.addressof(self._buffer)
+        base = ctypes.addressof(buffer)
 
         def _get_table_cb(_app_font: Any, name: Any, size_out: Any) -> int:
             # Return the raw address as a plain int: this is the portable way to
@@ -159,8 +150,8 @@ class GraphiteFont:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def from_bytes(cls, data: bytes, *, options: int = 0) -> GraphiteFont:
-        """Create a font from raw font-file bytes."""
+    def from_bytes(cls, data: bytes | bytearray, *, options: int = 0) -> GraphiteFont:
+        """Create a font from raw font-file bytes (``bytes`` or ``bytearray``)."""
         return cls(data, options=options)
 
     @classmethod
@@ -196,9 +187,9 @@ class GraphiteFont:
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        _exc_type: type[BaseException] | None,
+        _exc_val: BaseException | None,
+        _exc_tb: TracebackType | None,
     ) -> None:
         self.close()
 
@@ -327,9 +318,9 @@ class GraphiteFont:
             self._face,
             script_tag,
             feats_handle,
-            1,  # direction (matches SIL's official binding)
+            1,  # enc = gr_utf8 (matches SIL's official binding)
             ctypes.cast(text_buf, c_void_p),
-            len(text),  # graphite2's textLength is in characters, not bytes
+            len(text),  # nChars = number of Unicode characters, not bytes
             rtl,
         )
         if not seg:

@@ -1,0 +1,13 @@
+{
+  "include": ["src", "tests", "examples", "scripts"],
+  "exclude": ["archive", "dist", ".venv", "**/__pycache__"],
+  "pythonVersion": "3.9",
+  "typeCheckingMode": "standard",
+  // Cross-platform OS/arch conditionals (os.name / sys.platform) are
+  // intentionally not flagged: on any single host pyright can statically
+  // evaluate these and would mark the other platforms' branches unreachable.
+  "reportUnreachable": "none",
+  "reportUnnecessaryComparison": "none",
+  "reportMissingTypeStubs": "none",
+  "reportUnusedVariable": "warning"
+}

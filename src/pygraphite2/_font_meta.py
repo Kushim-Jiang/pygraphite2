@@ -47,7 +47,10 @@ def has_table(font: FontSource, tag: str) -> bool:
     try:
         tt = _open_ttf(font)
         try:
-            return tag in tt.reader.tables
+            reader = tt.reader
+            if reader is None:
+                return False
+            return tag in reader.tables
         finally:
             tt.close()
     except Exception:
@@ -68,7 +71,10 @@ def upem_from_ttf(font: FontSource) -> int:
     """
     tt = _open_ttf(font)
     try:
-        upem = tt["head"].unitsPerEm
+        head = tt["head"]
+        # fontTools' ``head`` table exposes unitsPerEm as a dynamic attribute
+        # that its type stubs don't declare; read it defensively.
+        upem = getattr(head, "unitsPerEm", None)
         return int(upem) if upem else 2048
     finally:
         tt.close()

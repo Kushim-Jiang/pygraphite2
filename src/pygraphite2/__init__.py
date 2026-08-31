@@ -99,7 +99,9 @@ _LIB_HINT = (
 
 
 if is_available():
-    from ._font import GraphiteFont
+    # The native class intentionally replaces the degraded stub defined in the
+    # else branch; suppress the (expected) type mismatch of that redefinition.
+    from ._font import GraphiteFont  # pyright: ignore[reportAssignmentType]
     from ._shaper import shape, shape_segment
 else:  # pragma: no cover - depends on host having graphite2
 
@@ -110,7 +112,7 @@ else:  # pragma: no cover - depends on host having graphite2
         :class:`LibraryNotFound` with a helpful message.
         """
 
-        def __init__(self, font: FontSource = b"", *, options: int = 0) -> None:
+        def __init__(self, *args: object, **kwargs: object) -> None:
             raise LibraryNotFound(_LIB_HINT)
 
         def __enter__(self) -> Any:
@@ -120,7 +122,7 @@ else:  # pragma: no cover - depends on host having graphite2
             return None
 
         @classmethod
-        def from_bytes(cls, data: bytes = b"", *, options: int = 0) -> Any:
+        def from_bytes(cls, data: bytes | bytearray = b"", *, options: int = 0) -> Any:
             return cls(data, options=options)
 
         @classmethod
@@ -136,6 +138,7 @@ else:  # pragma: no cover - depends on host having graphite2
         lang: str | None = None,
         features: Features | None = None,
     ) -> list[Glyph]:
+        _ = (font, text, direction, script, lang, features)
         raise LibraryNotFound(_LIB_HINT)
 
     def shape_segment(
@@ -147,6 +150,7 @@ else:  # pragma: no cover - depends on host having graphite2
         lang: str | None = None,
         features: Features | None = None,
     ) -> ShapedText:
+        _ = (font, text, direction, script, lang, features)
         raise LibraryNotFound(_LIB_HINT)
 
 

@@ -17,7 +17,6 @@ licensing; this file keeps SIL's original SPDX header.
 from __future__ import annotations
 
 import ctypes
-import ctypes.util
 import errno
 import os
 from collections.abc import Iterator
@@ -65,17 +64,17 @@ def grversion() -> tuple[int, int, int]:
     return (a.value, b.value, c.value)
 
 
-def __check(result: int, func: Callable[..., Any], args: tuple[Any, ...]) -> int:
+def __check(result: int, func: Callable[..., Any], _args: tuple[Any, ...]) -> int:
     """ctypes errcheck: raise ``RuntimeError`` when a result is falsy."""
     if not result:
         raise RuntimeError(func.__name__ + ": returned " + repr(result))
     return result
 
 
-def __idx_error(result: int, func: Callable[..., Any], args: tuple[Any, ...]) -> int:
+def __idx_error(result: int, func: Callable[..., Any], _args: tuple[Any, ...]) -> int:
     """ctypes errcheck: raise ``IndexError`` when an index lookup fails."""
     if not result:
-        raise IndexError(func.__name__ + ": invalid index " + repr(args[1]))
+        raise IndexError(func.__name__ + ": invalid index " + repr(_args[1]))
     return result
 
 
@@ -201,7 +200,7 @@ class Label(str):
         v = ctypes.string_at(ref, size).decode("utf-8")
         return super().__new__(cls, v)
 
-    def __init__(self, ref: Any, size: int) -> None:
+    def __init__(self, ref: Any, _size: int) -> None:
         self.ref: Any = ref
 
     def __del__(self, __gr2: Any = gr2) -> None:
@@ -264,19 +263,19 @@ class Face:
 
     def __init__(
         self,
-        data: str | bytes | os.PathLike,
+        data: str | bytes | os.PathLike[str],
         options: int = 0,
         fn: Callable[..., Any] | None = None,
     ) -> None:
         self.face: Any = None
         if fn:
-            self.face = gr2.gr_make_face(bytes(data), fn, options)
+            # In-memory face: normalize the source to raw bytes.
+            raw = data if isinstance(data, bytes) else os.fsencode(os.fspath(data))
+            self.face = gr2.gr_make_face(raw, fn, options)
         else:
             if not os.path.isfile(data):
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), data)
-            if hasattr(data, "__fspath__"):
-                data = os.fspath(data)
-            self.face = gr2.gr_make_file_face(data.encode("utf_8"), options)
+            self.face = gr2.gr_make_file_face(os.fsencode(os.fspath(data)), options)
 
     def __del__(self, __gr2: Any = gr2) -> None:
         __gr2.gr_face_destroy(self.face)
