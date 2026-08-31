@@ -1,21 +1,24 @@
 # graphite2 native library
 
-`pygraphite2` does **not** compile graphite2 and does **not** bundle it in the
-default wheel. It loads the native library at runtime, in this order:
+`pygraphite2` does **not** compile graphite2. It loads the native library at
+runtime, in this order:
 
 1. `pygraphite2.configure(path)` — explicit programmatic override (before first use)
 2. `PYGRAPHITE2_LIBRARY_PATH` (env var — a file **or** a directory)
-3. system library (`ctypes.util.find_library("graphite2")`)
-4. **this folder** (`vendor/graphite2/`) — repository checkout convenience
-5. (future) a wheel-bundled `pygraphite2/_lib/`
+3. **wheel-bundled** `pygraphite2/_lib/` (prebuilt tracing-enabled binaries)
+4. system library (`ctypes.util.find_library("graphite2")`)
+5. **this folder** (`vendor/graphite2/`) — repository checkout convenience
 
-Drop the correct file(s) into this folder (or rely on a system install).
+The published wheel bundles the binaries (mirrored from here into
+`src/pygraphite2/_lib/`), so installed users get them automatically. This
+folder serves developers working from a checkout; drop the correct file(s) here
+(or rely on a system install) if you want to override the bundled build.
 
 | Platform | File(s) to place here | How to get it |
 | -------- | --------------------- | ------------- |
 | Windows  | `graphite2.dll` (+ MSYS2 runtime DLLs: `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll`) | MSYS2 package `mingw-w64-x86_64-graphite2` (plus matching `gcc-libs`/`libwinpthread` runtime DLLs), or conda-forge `graphite2` (extract `Library/bin/graphite2.dll` + its runtime). |
-| Linux    | (optional) `libgraphite2.so` | `sudo apt install libgraphite2-3` (Debian/Ubuntu) or `conda install -c conda-forge graphite2` — the system lib is found automatically, no vendoring needed. |
-| macOS    | (optional) `libgraphite2.dylib` | `brew install graphite2` (if a formula exists) or `conda install -c conda-forge graphite2` — the system lib is found automatically. |
+| Linux    | (optional) `libgraphite2.so` | `sudo apt install libgraphite2-3` (Debian/Ubuntu) or `conda install -c conda-forge graphite2` |
+| macOS    | (optional) `libgraphite2.dylib` | `brew install graphite2` (if a formula exists) or `conda install -c conda-forge graphite2` |
 
 Use `scripts/find_native_lib.py` (or `pygraphite2.library_info()`) to see what
 was found.
@@ -30,9 +33,13 @@ locally — they power the per-pass shaping trace
   libgcc/libstdc++ linked statically; the UCRT is part of Windows 10+).
 - `libgraphite2.so` — **Linux** (built with a conda-forge gcc; depends only on
   glibc ≥ 2.34).
-- **macOS** is covered by `.github/workflows/build-native.yml` (build + verify
-  on `macos-latest`); run the script below to produce `libgraphite2.dylib`
-  locally if you want it vendored too.
+- `libgraphite2.dylib` — **macOS** — produced by
+  `.github/workflows/build-dylib.yml` (manual dispatch: it builds on
+  `macos-latest` and commits the dylib here + into `_lib/`).
+
+These are **mirrored into `src/pygraphite2/_lib/`**, which is what gets bundled
+into the wheel, so installed users on all three platforms get tracing out of
+the box. `scripts/build_tracing_lib.py` stages both locations automatically.
 
 All are graphite2 **1.3.15** (upstream commit
 `ca8d821e60a15b6c24e404c9086992c975d8e1cf`), compiled from

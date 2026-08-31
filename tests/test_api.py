@@ -11,8 +11,11 @@ from pygraphite2 import Glyph, ShapedText
 
 
 def test_version_is_exported() -> None:
-    assert pg.__version__ == "0.2.0"
-    assert isinstance(pg.version_tuple, tuple)
+    # Compare the two exported forms against each other (single source of
+    # truth in pygraphite2._version) instead of a hard-coded string, so a
+    # version bump can't silently break the test.
+    assert isinstance(pg.__version__, str)
+    assert pg.version_tuple == tuple(int(x) for x in pg.__version__.split("."))
     assert len(pg.version_tuple) == 3
 
 

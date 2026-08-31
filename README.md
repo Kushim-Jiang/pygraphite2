@@ -6,7 +6,10 @@
 orthographies that need smart-font rules) using the Graphite rendering
 technology. It is a **pure-Python** package — it wraps SIL's official ctypes
 binding and loads the native `libgraphite2` at runtime, so there is **no C/C++
-compilation** and no build toolchain required to install it.
+compilation** and no build toolchain required to install it. Prebuilt native
+libraries for **Windows, macOS and Linux are bundled inside the wheel**, so
+normal shaping **and** the per-pass shaping trace work immediately after
+`pip install`, with no system Graphite2 and no manual DLL provisioning.
 
 ```python
 import pygraphite2
@@ -21,9 +24,11 @@ for g in glyphs:
 
 - **Fully typed** — ships a `py.typed` marker and complete inline annotations
   (`mypy --strict` clean on the package).
-- **Cross-platform** — Windows / macOS / Linux. The native library is discovered
-  in a documented order (env var → system library → wheel-bundled → vendored),
-  with Windows DLL-directory handling for MSYS2 runtime dependencies.
+- **Cross-platform, works out of the box** — Windows / macOS / Linux. The
+  wheel bundles prebuilt native libraries (`pygraphite2/_lib/`), which are
+  preferred over any system install (so tracing works); an explicit
+  `configure()` / `PYGRAPHITE2_LIBRARY_PATH` override still wins, and Windows
+  DLL-directory handling covers the mingw runtime dependency.
 - **No temp files** — fonts are loaded fully in memory through a native table
   callback; nothing is ever written to disk.
 - **Rich, ergonomic API** — glyph runs with advances/clusters, RTL support,
@@ -40,11 +45,13 @@ for g in glyphs:
 pip install pygraphite2        # or: uv add pygraphite2
 ```
 
-The wheel is a universal (`py3-none-any`) pure-Python wheel. It **does not
-bundle** the native library by default; you must make `libgraphite2` available
-(see [Native library](#native-library)). Platform-specific wheels that bundle
-the library are planned for a future release (the loader already supports them
-via `pygraphite2/_lib/`).
+The wheel is a universal (`py3-none-any`) wheel that **bundles the prebuilt
+native libraries** for Windows, macOS and Linux under `pygraphite2/_lib/` — no
+system `libgraphite2` and no manual DLL provisioning needed for shaping **or**
+tracing (the bundled binaries are tracing-enabled, so `shape_trace` works too).
+
+The native library is still loaded at runtime and overridable, so you can point
+at a different build when you need to (see [Native library](#native-library)).
 
 For development from source:
 
@@ -63,11 +70,12 @@ mypy src
 |---|--------|-----|
 | 1 | `pygraphite2.configure(path)` | explicit programmatic override |
 | 2 | `PYGRAPHITE2_LIBRARY_PATH` env var | path to a file **or** a directory |
-| 3 | System library | `ctypes.util.find_library("graphite2")` |
-| 4 | Wheel-bundled `pygraphite2/_lib/` | future platform wheels |
+| 3 | Wheel-bundled `pygraphite2/_lib/` | prebuilt tracing-enabled binaries for Windows/macOS/Linux |
+| 4 | System library | `ctypes.util.find_library("graphite2")` |
 | 5 | Vendored checkout `vendor/graphite2/` | developer convenience |
 
-Per-OS ways to obtain the library:
+The bundled `_lib/` library is used unless you override it. To instead rely on
+a system/manual install, the per-OS ways to obtain `libgraphite2` are:
 
 - **Debian/Ubuntu**: `sudo apt install libgraphite2-3`
 - **conda-forge**: `conda install graphite2`

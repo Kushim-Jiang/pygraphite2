@@ -7,6 +7,8 @@ __pycache__/
 *.so
 # but keep the vendored tracing build so shape_trace works out of the box on Linux
 !vendor/graphite2/libgraphite2.so
+# ...and the bundled copies that ship inside the wheel's _lib/
+!src/pygraphite2/_lib/libgraphite2.so
 
 # Distribution / packaging
 .Python

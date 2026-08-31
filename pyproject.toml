@@ -59,6 +59,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pygraphite2"]
+# Bundle the tracing-enabled native libraries (Windows DLL + Linux .so +
+# macOS dylib) into the wheel so shaping + tracing work after ``pip install``
+# with no system graphite2 and no manual DLL provisioning.
+include = ["src/pygraphite2/_lib/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [

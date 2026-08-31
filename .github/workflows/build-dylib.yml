@@ -1,0 +1,55 @@
+name: Build macOS dylib
+
+# One-shot helper: builds the tracing-enabled macOS `libgraphite2.dylib` from
+# the pinned upstream source on a macOS runner and commits it to both
+# `vendor/graphite2/` and `src/pygraphite2/_lib/` (the wheel bundle).
+#
+# There is no legal way to cross-compile graphite2 for macOS from Windows/Linux,
+# so this runs only when manually triggered:
+#   Actions -> "Build macOS dylib" -> "Run workflow"
+#
+# The dylib depends only on the macOS system libraries, so the wheel's
+# `py3-none-any` "fat wheel" (Windows DLL + Linux .so + macOS dylib) works on
+# all three platforms.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build + commit libgraphite2.dylib
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned graphite2 source
+        uses: actions/checkout@v4
+        with:
+          repository: silnrsi/graphite
+          ref: ca8d821e60a15b6c24e404c9086992c975d8e1cf
+          path: .graphite-src
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Show toolchain
+        run: cmake --version && clang --version
+
+      - name: Build tracing-enabled dylib (stages vendor/ and _lib/)
+        run: python scripts/build_tracing_lib.py --source .graphite-src
+
+      - name: Commit vendored dylib
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vendor/graphite2/libgraphite2.dylib src/pygraphite2/_lib/libgraphite2.dylib
+          if git diff --cached --quiet; then
+            echo "dylib unchanged — nothing to commit"
+          else
+            git commit -m "Vendor macOS libgraphite2.dylib (tracing-enabled)"
+            git push
+          fi

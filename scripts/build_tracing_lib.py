@@ -179,6 +179,25 @@ def _verify(out: Path) -> None:
     print(f"OK: {path.name} loads and gr_start_logging works")
 
 
+# Wheel staging dir: binaries placed here are packaged into the wheel's
+# ``pygraphite2/_lib/`` so ``pip install pygraphite2`` works out of the box.
+_WHEEL_LIB_DIR = Path(__file__).resolve().parent.parent / "src" / "pygraphite2" / "_lib"
+
+
+def _stage_wheel_lib(out: Path) -> None:
+    """Mirror the freshly built library into the wheel's ``_lib/`` dir."""
+    if not _WHEEL_LIB_DIR.is_dir():
+        return
+    plat = _platform()
+    shutil.copy2(out / _OUT_NAMES[plat], _WHEEL_LIB_DIR / _OUT_NAMES[plat])
+    print(f"mirrored {_OUT_NAMES[plat]} -> {_WHEEL_LIB_DIR}")
+    if plat == "win32":
+        wp = out / "libwinpthread-1.dll"
+        if wp.is_file():
+            shutil.copy2(wp, _WHEEL_LIB_DIR / "libwinpthread-1.dll")
+            print(f"mirrored libwinpthread-1.dll -> {_WHEEL_LIB_DIR}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--source", default=None, help="path to an existing graphite source clone (else cloned)")
@@ -194,6 +213,7 @@ def main() -> int:
     try:
         _build(source, out)
         _verify(out)
+        _stage_wheel_lib(out)
     finally:
         if is_temp:
             shutil.rmtree(source, ignore_errors=True)

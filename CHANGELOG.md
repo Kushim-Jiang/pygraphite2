@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bundled native libraries** — the wheel now ships prebuilt tracing-enabled
+  `libgraphite2` binaries for **Windows, macOS and Linux** under
+  `pygraphite2/_lib/`, so shaping **and** `shape_trace` work out of the box
+  after `pip install` — no system Graphite2, no manual DLL provisioning.
+  `scripts/build_tracing_lib.py` mirrors builds into `_lib/` automatically, and
+  `.github/workflows/build-dylib.yml` builds + commits the macOS dylib on
+  demand.
+
+### Changed
+
+- **Library search order**: the wheel-bundled `_lib/` is now preferred over the
+  system library, so the bundled tracing-enabled build wins (it is functionally
+  identical for normal shaping) — otherwise `shape_trace` would silently not
+  work when a non-tracing distro binary was present.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

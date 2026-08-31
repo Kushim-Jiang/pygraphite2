@@ -117,15 +117,21 @@ def _candidate_paths() -> Iterator[Path]:
         else:
             yield from _offer(env_path)
 
-    # 3. system library
-    sys_lib = ctypes.util.find_library("graphite2")
-    if sys_lib:
-        yield from _offer(Path(sys_lib))
-
-    # 4. wheel-local _lib/ directory
+    # 3. wheel-local _lib/ directory (bundled in the published wheel)
+    #
+    #    Preferred over the system library: the bundled binary is built with
+    #    tracing enabled (GRAPHITE2_NTRACING off) and is functionally identical
+    #    to a plain build for normal shaping, whereas distro/system binaries
+    #    usually have tracing compiled out — so shape_trace would silently not
+    #    work if the system library won.
     if _LIB_DIR.is_dir():
         for p in _platform_candidates(_LIB_DIR):
             yield from _offer(p)
+
+    # 4. system library
+    sys_lib = ctypes.util.find_library("graphite2")
+    if sys_lib:
+        yield from _offer(Path(sys_lib))
 
     # 5. vendored checkout directory
     for p in _platform_candidates(_VENDOR_DIR):
