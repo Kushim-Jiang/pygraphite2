@@ -73,7 +73,7 @@ jobs:
         run: |
           python - <<'EOF'
           import pygraphite2 as pg
-          print("library:", pg.library_info().path)
+          print("library:", pg.library_info())
           with pg.GraphiteFont.from_bytes(open("vendor/fonts/Padauk-Regular.ttf", "rb").read()) as f:
               assert f.tracing_supported(), "tracing not compiled in"
               stages = f.shape_trace("\u1019\u103c\u1014\u103a\u1019\u102c", script="mymr").stages
