@@ -39,13 +39,7 @@ from ._errors import (
     ShapingError,
     TracingUnavailable,
 )
-from ._font_meta import (
-    FontSource,
-    has_table,
-    is_graphite_font,
-    read_font_bytes,
-    upem_from_ttf,
-)
+from ._font_meta import FontSource, has_table, is_graphite_font, read_font_bytes, upem_from_ttf
 from ._loader import configure, is_available, library_path, load
 from ._types import (
     Direction,

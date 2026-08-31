@@ -26,7 +26,8 @@ This folder currently ships a **Windows DLL built with tracing support**, which
 is what powers the per-pass shaping trace
 (`pygraphite2.shape_trace` / `GraphiteFont.start_logging`):
 
-- `libgraphite2.dll` — graphite2 **1.3.15**, compiled from
+- `libgraphite2.dll` — graphite2 **1.3.15** (upstream commit
+  `ca8d821e60a15b6c24e404c9086992c975d8e1cf`), compiled from
   [`silnrsi/graphite`](https://github.com/silnrsi/graphite) with
   **`-DGRAPHITE2_NTRACING=OFF`** (tracing enabled). Most distro/release binaries
   compile with `GRAPHITE2_NTRACING=ON` (the default), which makes
