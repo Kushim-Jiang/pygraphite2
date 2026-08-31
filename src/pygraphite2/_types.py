@@ -19,7 +19,10 @@ __all__ = [
     "Glyph",
     "ScriptTag",
     "ShapedText",
+    "ShapedTrace",
     "StrPath",
+    "TraceStage",
+    "glyph_to_dict",
 ]
 
 #: A filesystem path: either ``str`` or :class:`os.PathLike`.
@@ -103,3 +106,65 @@ class Feature:
     tag: str
     #: The allowed values (and their labels) for this feature.
     values: tuple[FeatureValue, ...]
+
+
+def glyph_to_dict(g: Glyph) -> dict[str, int]:
+    """Serialize a :class:`Glyph` to the ``{g, cl, dx, dy, ax, ay, flags}`` shape
+    used by shaping-debug UIs (e.g. BabelMap's OpenType Test dialog)."""
+    return {
+        "g": g.gid,
+        "cl": g.cluster,
+        "dx": int(g.x_offset),
+        "dy": int(g.y_offset),
+        "ax": int(g.x_advance),
+        "ay": int(g.y_advance),
+        "flags": 0,
+    }
+
+
+@dataclass(frozen=True)
+class TraceStage:
+    """A single snapshot of the glyph run at one point during shaping.
+
+    Mirrors the ``{m, glyphs, depth, effective}`` "stage" rows used by
+    Crowbar-style shaping debuggers: for Graphite, one stage corresponds to one
+    shaping **pass** (each recorded with its own glyph snapshot).
+    """
+
+    #: Human-readable label for this step, e.g. ``"Pass 3"``.
+    m: str
+    #: The glyph run at this point of shaping.
+    glyphs: tuple[Glyph, ...]
+    #: Nesting depth (0 for Graphite passes; reserved for nested steps).
+    depth: int = 0
+    #: Whether this step actually changed the glyph run.
+    effective: bool = True
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize to the backend ``{m, glyphs, depth, effective}`` stage schema."""
+        return {
+            "m": self.m,
+            "glyphs": [glyph_to_dict(g) for g in self.glyphs],
+            "depth": self.depth,
+            "effective": self.effective,
+        }
+
+
+@dataclass(frozen=True)
+class ShapedTrace:
+    """The full per-pass shaping trace for one run of text."""
+
+    #: The input text that was shaped.
+    text: str
+    #: The direction the run was shaped with.
+    direction: Direction
+    #: One stage per Graphite pass, plus optional start/end bookends.
+    stages: tuple[TraceStage, ...]
+    #: The final glyph run (same slots as the last stage).
+    final: tuple[Glyph, ...]
+    #: The script tag (as an int) used for shaping.
+    script: int = 0
+
+    def stages_to_dicts(self) -> list[dict[str, object]]:
+        """Serialize all stages to the backend ``stages`` list schema."""
+        return [s.to_dict() for s in self.stages]

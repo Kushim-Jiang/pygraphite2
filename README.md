@@ -138,6 +138,36 @@ with pygraphite2.GraphiteFont.from_path("MyGraphite.ttf") as font:
     print(shaped.advance_x)
 ```
 
+### Per-pass shaping trace (needs a tracing-enabled binary)
+
+`pygraphite2.shape_trace(font, text, ...)` / `GraphiteFont.shape_trace(...)`
+return a **step-by-step shaping trace** — one `TraceStage` per Graphite pass,
+each a snapshot of the glyph run, bookended by "Start of shaping" (input glyphs)
+and "End of shaping" (final glyphs). This is directly renderable by
+Crowbar-style shaping debuggers (e.g. BabelMap's OpenType Test dialog):
+
+```python
+import pygraphite2 as pg
+
+trace = pg.shape_trace(open("Padauk-Regular.ttf", "rb").read(), "မြန်မာ", script="mymr")
+for stage in trace.stages:
+    print(stage.m, [g.gid for g in stage.glyphs])
+# Start of shaping [305, 392, 290, 383, 305, 354]
+# Pass 1 ...
+# ... the pass where reordering happens ...
+# End of shaping [392, 305, 290, 383, 305, 354]
+```
+
+- `TraceStage.to_dict()` / `ShapedTrace.stages_to_dicts()` serialize to the
+  `{m, glyphs, depth, effective}` / `{g, cl, dx, dy, ax, ay, flags}` schema used
+  by shaping-debug UIs.
+- Requires a graphite2 binary built **with** tracing support
+  (`GRAPHITE2_NTRACING` off). `GraphiteFont.tracing_supported()` reports whether
+  the loaded binary can trace; otherwise `shape_trace` raises `TracingUnavailable`.
+  `vendor/graphite2/` ships a tracing-enabled Windows DLL — see its README.
+- Lower-level control: `GraphiteFont.start_logging(path)` / `stop_logging()`
+  wrap graphite2's Segment-JSON logging directly.
+
 ## Error handling
 
 All exceptions derive from `pygraphite2.GraphiteError`:
@@ -145,6 +175,7 @@ All exceptions derive from `pygraphite2.GraphiteError`:
 - `LibraryNotFound` — no native library could be located/loaded.
 - `GraphiteFontError` — invalid font data, missing `Silf` table, unknown feature.
 - `ShapingError` — the native shaper failed.
+- `TracingUnavailable` — a trace was requested but the binary has no tracing support.
 
 ## Development
 

@@ -32,7 +32,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._errors import GraphiteError, GraphiteFontError, LibraryNotFound, ShapingError
+from ._errors import (
+    GraphiteError,
+    GraphiteFontError,
+    LibraryNotFound,
+    ShapingError,
+    TracingUnavailable,
+)
 from ._font_meta import (
     FontSource,
     has_table,
@@ -49,7 +55,9 @@ from ._types import (
     Glyph,
     ScriptTag,
     ShapedText,
+    ShapedTrace,
     StrPath,
+    TraceStage,
 )
 from ._version import __version__, version_tuple
 
@@ -70,8 +78,11 @@ __all__ = [
     "LibraryNotFound",
     "ScriptTag",
     "ShapedText",
+    "ShapedTrace",
     "ShapingError",
     "StrPath",
+    "TraceStage",
+    "TracingUnavailable",
     # Version
     "__version__",
     "configure",
@@ -86,6 +97,7 @@ __all__ = [
     "read_font_bytes",
     "shape",
     "shape_segment",
+    "shape_trace",
     "upem_from_ttf",
     "version_tuple",
 ]
@@ -102,7 +114,7 @@ if is_available():
     # The native class intentionally replaces the degraded stub defined in the
     # else branch; suppress the (expected) type mismatch of that redefinition.
     from ._font import GraphiteFont  # pyright: ignore[reportAssignmentType]
-    from ._shaper import shape, shape_segment
+    from ._shaper import shape, shape_segment, shape_trace
 else:  # pragma: no cover - depends on host having graphite2
 
     class GraphiteFont:  # type: ignore[no-redef]
@@ -151,6 +163,19 @@ else:  # pragma: no cover - depends on host having graphite2
         features: Features | None = None,
     ) -> ShapedText:
         _ = (font, text, direction, script, lang, features)
+        raise LibraryNotFound(_LIB_HINT)
+
+    def shape_trace(
+        font: FontSource,
+        text: str,
+        *,
+        direction: Direction = "ltr",
+        script: ScriptTag | None = None,
+        lang: str | None = None,
+        features: Features | None = None,
+        include_start: bool = True,
+    ) -> ShapedTrace:
+        _ = (font, text, direction, script, lang, features, include_start)
         raise LibraryNotFound(_LIB_HINT)
 
 

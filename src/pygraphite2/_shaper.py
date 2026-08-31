@@ -8,9 +8,9 @@ shaping many runs with the same font, prefer the reusable
 from __future__ import annotations
 
 from ._font import FontSource, GraphiteFont
-from ._types import Direction, Features, Glyph, ScriptTag, ShapedText
+from ._types import Direction, Features, Glyph, ScriptTag, ShapedText, ShapedTrace
 
-__all__ = ["shape", "shape_segment"]
+__all__ = ["shape", "shape_segment", "shape_trace"]
 
 
 def shape(
@@ -51,4 +51,31 @@ def shape_segment(
     with GraphiteFont(font) as font_obj:
         return font_obj.shape(
             text, direction=direction, script=script, lang=lang, features=features
+        )
+
+
+def shape_trace(
+    font: FontSource,
+    text: str,
+    *,
+    direction: Direction = "ltr",
+    script: ScriptTag | None = None,
+    lang: str | None = None,
+    features: Features | None = None,
+    include_start: bool = True,
+) -> ShapedTrace:
+    """Shape *text* and return a per-pass shaping trace.
+
+    One-shot wrapper around :meth:`pygraphite2.GraphiteFont.shape_trace`.
+    Requires a graphite2 binary built with tracing support (see
+    :class:`pygraphite2.TracingUnavailable`).
+    """
+    with GraphiteFont(font) as font_obj:
+        return font_obj.shape_trace(
+            text,
+            direction=direction,
+            script=script,
+            lang=lang,
+            features=features,
+            include_start=include_start,
         )

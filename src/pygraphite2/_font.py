@@ -10,13 +10,18 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
+import io
+import os
 import struct
+import tempfile
 from ctypes import POINTER, c_size_t, c_uint, c_void_p
+from pathlib import Path
 from types import TracebackType
 from typing import Any, Union
 
 from . import _binding as _g
-from ._errors import GraphiteFontError, ShapingError
+from ._errors import GraphiteFontError, ShapingError, TracingUnavailable
+from ._trace import parse_segment_log
 from ._types import (
     Direction,
     Feature,
@@ -25,8 +30,25 @@ from ._types import (
     Glyph,
     ScriptTag,
     ShapedText,
+    ShapedTrace,
     StrPath,
+    TraceStage,
 )
+
+_TRACE_HINT = (
+    "this graphite2 binary was built without tracing support (GRAPHITE2_NTRACING). "
+    "Use a tracing-enabled build, e.g. the DLL vendored in vendor/graphite2/."
+)
+
+
+def _resolve_script_tag(script: ScriptTag | None) -> int:
+    """Normalize a script tag (str tag, int tag, or None) to an int tag."""
+    if isinstance(script, str):
+        return int(_g.gr2.gr_str_to_tag(script.encode("ascii")))
+    if script is None:
+        return 0
+    return int(script)
+
 
 __all__ = ["FontSource", "GraphiteFont"]
 
@@ -99,6 +121,7 @@ class GraphiteFont:
     __slots__ = (
         "_buffer",
         "_closed",
+        "_data",
         "_face",
         "_font",
         "_get_table",
@@ -109,6 +132,7 @@ class GraphiteFont:
 
     def __init__(self, font: FontSource, *, options: int = 0) -> None:
         data = _read_font_bytes(font)
+        self._data: bytes = data
         self._options: int = options
         self._closed: bool = False
         sfnt = _Sfnt(data)
@@ -290,13 +314,7 @@ class GraphiteFont:
         self._ensure_open()
         font_handle = self._make_font_handle()
         rtl = 1 if direction == "rtl" else 0
-
-        if isinstance(script, str):
-            script_tag = int(_g.gr2.gr_str_to_tag(script.encode("ascii")))
-        elif script is None:
-            script_tag = 0
-        else:
-            script_tag = int(script)
+        script_tag = _resolve_script_tag(script)
 
         feats_handle: Any = None
         if features:
@@ -364,3 +382,137 @@ class GraphiteFont:
             slot = next_slot
             index += 1
         return ShapedText(tuple(glyphs), advance_x, advance_y, text, direction, script)
+
+    # ------------------------------------------------------------------ #
+    # Tracing (Segment-JSON per-pass shaping trace)
+    # ------------------------------------------------------------------ #
+
+    def tracing_supported(self) -> bool:
+        """Whether the loaded graphite2 binary can emit shaping traces.
+
+        The Segment-JSON tracing machinery is compiled out of most release
+        binaries (``GRAPHITE2_NTRACING``); in that case :meth:`shape_trace`
+        raises :class:`pygraphite2.TracingUnavailable`.
+        """
+        self._ensure_open()
+        start = getattr(_g.gr2, "gr_start_logging", None)
+        stop = getattr(_g.gr2, "gr_stop_logging", None)
+        if start is None or stop is None:
+            return False
+        fd, path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        try:
+            ok = bool(start(self._face, os.fsencode(path)))
+            stop(self._face)
+            return ok
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(path)
+
+    def start_logging(self, path: StrPath) -> bool:
+        """Start writing the Segment-JSON shaping trace for this face to *path*.
+
+        Returns ``False`` (and writes nothing) when the loaded binary has no
+        tracing support. Only segments shaped while logging is active are
+        recorded; call :meth:`stop_logging` to close the log file.
+        """
+        self._ensure_open()
+        start = getattr(_g.gr2, "gr_start_logging", None)
+        if start is None:
+            return False
+        return bool(start(self._face, os.fsencode(os.fspath(path))))
+
+    def stop_logging(self) -> None:
+        """Stop tracing for this face and close the log file."""
+        self._ensure_open()
+        stop = getattr(_g.gr2, "gr_stop_logging", None)
+        if stop is not None:
+            stop(self._face)
+
+    def shape_trace(
+        self,
+        text: str,
+        *,
+        direction: Direction = "ltr",
+        script: ScriptTag | None = None,
+        lang: str | None = None,
+        features: Features | None = None,
+        include_start: bool = True,
+    ) -> ShapedTrace:
+        """Shape *text* and return a per-pass shaping trace.
+
+        Requires a graphite2 binary built with tracing support; raises
+        :class:`pygraphite2.TracingUnavailable` otherwise. The result contains
+        one :class:`TraceStage` per Graphite pass (a snapshot of the glyph run
+        after that pass), bookended by "Start of shaping" (input glyphs) and
+        "End of shaping" (final glyphs) rows — directly renderable by
+        Crowbar-style shaping debuggers.
+
+        Not thread-safe: do not shape on the same font concurrently while a
+        trace is being captured.
+        """
+        self._ensure_open()
+        fd, path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        try:
+            if not self.start_logging(path):
+                raise TracingUnavailable(_TRACE_HINT)
+            try:
+                self.shape(text, direction=direction, script=script, lang=lang, features=features)
+            finally:
+                self.stop_logging()
+            raw = Path(path).read_text(encoding="utf-8")
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(path)
+
+        stages, final = parse_segment_log(raw)
+        stages_list = list(stages)
+        if include_start:
+            stages_list.insert(
+                0, TraceStage(m="Start of shaping", glyphs=self._start_glyphs(text), effective=True)
+            )
+        stages_list.append(TraceStage(m="End of shaping", glyphs=final, effective=True))
+        return ShapedTrace(
+            text=text,
+            direction=direction,
+            stages=tuple(stages_list),
+            final=final,
+            script=_resolve_script_tag(script),
+        )
+
+    def _start_glyphs(self, text: str) -> tuple[Glyph, ...]:
+        """Input glyphs: each codepoint mapped through the font's cmap.
+
+        This is the "no shaping" baseline row, matching the FreeType-raw engine
+        used elsewhere for before/after comparison.
+        """
+        if not text:
+            return ()
+        from fontTools.ttLib import TTFont
+
+        tt = TTFont(io.BytesIO(self._data), lazy=True)
+        try:
+            cmap = tt.getBestCmap() or {}
+            order = tt.getGlyphOrder()
+            gid_of = {name: i for i, name in enumerate(order)}
+        finally:
+            tt.close()
+        glyphs = []
+        for i, ch in enumerate(text):
+            name = cmap.get(ord(ch))
+            gid = gid_of.get(name, 0) if name else 0
+            glyphs.append(
+                Glyph(
+                    gid=gid,
+                    cluster=i,
+                    x_advance=0.0,
+                    y_advance=0.0,
+                    x_offset=0.0,
+                    y_offset=0.0,
+                    before=i,
+                    after=i + 1,
+                    slot_index=i,
+                )
+            )
+        return tuple(glyphs)

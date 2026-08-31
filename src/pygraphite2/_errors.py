@@ -11,6 +11,7 @@ __all__ = [
     "GraphiteFontError",
     "LibraryNotFound",
     "ShapingError",
+    "TracingUnavailable",
 ]
 
 
@@ -41,3 +42,13 @@ class GraphiteFontError(GraphiteError):
 
 class ShapingError(GraphiteError):
     """Raised when the native shaper fails to shape a run of text."""
+
+
+class TracingUnavailable(GraphiteError):
+    """Raised when a shaping trace is requested but the loaded graphite2 binary
+    cannot produce one.
+
+    The Segment-JSON tracing machinery is compiled out of most release binaries
+    (built with ``GRAPHITE2_NTRACING``). Use a binary built with tracing enabled
+    (e.g. the one vendored in ``vendor/graphite2/``) to get per-pass traces.
+    """

@@ -53,13 +53,29 @@ elif sys.platform == "darwin":
 else:
     _PLATFORM_NAMES = ("libgraphite2.so", "libgraphite2.so.4", "libgraphite2.so.3")
 
-# Package directory: <root>/src/pygraphite2/
+# Package directory: <root>/src/pygraphite2/ (or site-packages/pygraphite2/).
 _PACKAGE_DIR = Path(__file__).resolve().parent
 # Wheel-local directory for future platform wheels.
 _LIB_DIR = _PACKAGE_DIR / "_lib"
-# Repository root: this file lives at <root>/src/pygraphite2/_loader.py.
-_REPO_ROOT = _PACKAGE_DIR.parents[2]
-_VENDOR_DIR = _REPO_ROOT / "vendor" / "graphite2"
+
+
+def _find_vendor_dir() -> Path:
+    """Locate the repository checkout's ``vendor/graphite2/`` directory.
+
+    Walks up from the package directory and returns the first ancestor that
+    contains a ``vendor/graphite2`` directory, which makes the discovery robust
+    to the layout (``src/pygraphite2/`` vs a flat checkout). In an installed
+    wheel there is no vendor directory, so a non-existent fallback path is
+    returned (the loader simply never finds anything there).
+    """
+    for parent in _PACKAGE_DIR.parents:
+        candidate = parent / "vendor" / "graphite2"
+        if candidate.is_dir():
+            return candidate
+    return _PACKAGE_DIR.parents[1] / "vendor" / "graphite2"
+
+
+_VENDOR_DIR = _find_vendor_dir()
 
 # Explicit override set via configure(); None means "auto-discover".
 _configured_path: Path | None = None

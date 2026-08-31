@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Vendored native binaries must never be line-normalized
+*.dll binary
+*.so binary
+*.dylib binary
+*.ttf binary

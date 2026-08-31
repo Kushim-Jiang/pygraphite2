@@ -5,6 +5,31 @@ All notable changes to **pygraphite2** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Per-pass shaping trace** (`shape_trace` / `GraphiteFont.shape_trace`,
+  `TraceStage`, `ShapedTrace`): captures graphite2's Segment-JSON logging and
+  converts it into one stage per Graphite pass (each a snapshot of the glyph
+  run), plus "Start of shaping" / "End of shaping" bookends. Output serializes
+  to the `{m, glyphs, depth, effective}` / `{g, cl, dx, dy, ax, ay, flags}`
+  schema used by Crowbar-style shaping debuggers.
+- **`GraphiteFont.start_logging(path)` / `stop_logging()` / `tracing_supported()`**
+  — direct access to `gr_start_logging` / `gr_stop_logging`, with runtime
+  detection of whether the loaded binary was built with tracing support.
+- **`TracingUnavailable`** error raised when a trace is requested from a binary
+  without tracing support.
+- **Vendored tracing-enabled Windows DLL** in `vendor/graphite2/` (graphite2
+  1.3.15 built with `-DGRAPHITE2_NTRACING=OFF`, static mingw runtime), so
+  `shape_trace` works out of the box on Windows. See `vendor/graphite2/README.md`.
+
+### Fixed
+
+- The loader's vendored-directory discovery now walks up the package's parents
+  to find `vendor/graphite2/`, which was broken under the `src/` layout (it
+  looked one directory too high, so the vendored library was never found).
+
 ## [0.2.0] - 2026-08-31
 
 This release is the first from the independent `pygraphite2` repository. The
