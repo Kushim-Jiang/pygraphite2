@@ -1,0 +1,45 @@
+name: Publish to PyPI
+
+# Publishes pygraphite2 to PyPI using Trusted Publishing (no API tokens).
+#
+# Trigger: push a tag matching `v*` (e.g. `v0.2.0`). A `pypi` environment
+# must exist on the repository with "Allow GitHub Actions" trusted-publishing
+# configured (and the PyPI project's Trusted Publisher set to this repo/workflow).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    name: "test (${{ matrix.os }} / py${{ matrix.python }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # The graphite2 native library is provided best-effort per OS. Tests that
+      # need it auto-skip when it is missing, so the pure-Python parts always run.
+      - name: Install graphite2 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgraphite2-3
+
+      - name: Install graphite2 (macOS)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: graphite2
+          create-args: graphite2
+
+      - name: Install graphite2 (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: graphite2
+          create-args: graphite2
+
+      - name: Point loader at conda-provided graphite2
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "PYGRAPHITE2_LIBRARY_PATH=$CONDA_PREFIX/Library/bin" >> "$GITHUB_ENV"
+          else
+            echo "PYGRAPHITE2_LIBRARY_PATH=$CONDA_PREFIX/lib" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install package (editable + dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Type check (mypy, strict)
+        run: mypy
+
+      - name: Test (pytest)
+        run: pytest
+
+  # Sanity check that the distribution artifacts build cleanly on all OSes.
+  build:
+    name: "build sdist + wheel"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
