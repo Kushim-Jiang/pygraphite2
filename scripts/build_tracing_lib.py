@@ -83,7 +83,7 @@ def _obtain_source(source: str | None) -> tuple[Path, bool]:
     return tmp, True
 
 
-def _build(source: Path, out: Path) -> None:
+def _build(source: Path, out: Path, cmake_defines: list[str] | None = None) -> None:
     plat = _platform()
     build = source / "_build-tracing"
     if build.exists():
@@ -101,6 +101,8 @@ def _build(source: Path, out: Path) -> None:
         "-DBUILD_TESTING=OFF",
         "-DGRAPHITE2_NTRACING=OFF",
     ]
+    if cmake_defines:
+        common.extend(f"-D{d}" for d in cmake_defines)
     if plat == "win32":
         gcc, gxx, make = _find("gcc"), _find("g++"), _find("mingw32-make") or _find("make")
         if not (gcc and gxx and make):
@@ -206,12 +208,19 @@ def main() -> int:
         default=str(Path(__file__).resolve().parent.parent / "vendor" / "graphite2"),
         help="output directory (default: vendor/graphite2/)",
     )
+    ap.add_argument(
+        "--cmake-define",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="extra -D<NAME>=<VALUE> passed to cmake configure (repeatable)",
+    )
     args = ap.parse_args()
 
     out = Path(args.out)
     source, is_temp = _obtain_source(args.source)
     try:
-        _build(source, out)
+        _build(source, out, args.cmake_define)
         _verify(out)
         _stage_wheel_lib(out)
     finally:
