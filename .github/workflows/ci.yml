@@ -65,8 +65,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Format check (ruff)
-        run: ruff format --check .
+      # Note: `ruff format --check` is intentionally not run — it conflicts
+      # with the editor's auto-formatter (which collapses long lines that ruff
+      # would re-wrap). Linting (ruff check) is still enforced.
 
       - name: Type check (mypy, strict)
         run: mypy

@@ -164,7 +164,9 @@ for stage in trace.stages:
 - Requires a graphite2 binary built **with** tracing support
   (`GRAPHITE2_NTRACING` off). `GraphiteFont.tracing_supported()` reports whether
   the loaded binary can trace; otherwise `shape_trace` raises `TracingUnavailable`.
-  `vendor/graphite2/` ships a tracing-enabled Windows DLL — see its README.
+  `vendor/graphite2/` ships tracing-enabled binaries for **Windows and Linux**, and
+  `.github/workflows/build-native.yml` builds + verifies tracing on macOS too —
+  see `vendor/graphite2/README.md`.
 - Lower-level control: `GraphiteFont.start_logging(path)` / `stop_logging()`
   wrap graphite2's Segment-JSON logging directly.
 
@@ -185,7 +187,9 @@ All exceptions derive from `pygraphite2.GraphiteError`:
 - **Lint**: `ruff check .`  &nbsp; **Format**: `ruff format .`
 - **Types**: `mypy src` (strict)
 - **CI**: `.github/workflows/ci.yml` runs the test matrix on
-  Ubuntu/macOS/Windows and multiple Python versions; `.github/workflows/publish.yml`
+  Ubuntu/macOS/Windows and multiple Python versions; `.github/workflows/build-native.yml`
+  builds a tracing-enabled graphite2 from the pinned upstream source and verifies
+  `shape_trace` on all three OSes; `.github/workflows/publish.yml`
   publishes to PyPI via trusted publishing on version tags.
 
 ## Licensing & attribution

@@ -5,6 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
+# but keep the vendored tracing build so shape_trace works out of the box on Linux
+!vendor/graphite2/libgraphite2.so
 
 # Distribution / packaging
 .Python

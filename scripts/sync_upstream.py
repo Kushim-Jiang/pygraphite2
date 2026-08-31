@@ -79,9 +79,7 @@ def _abi_report(upstream: str, ours: str) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ref", default=PINNED_REF, help="upstream git ref to diff against")
     ap.add_argument("--workdir", default=None, help="reuse an existing upstream clone directory")
     args = ap.parse_args()

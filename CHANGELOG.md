@@ -20,15 +20,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detection of whether the loaded binary was built with tracing support.
 - **`TracingUnavailable`** error raised when a trace is requested from a binary
   without tracing support.
-- **Vendored tracing-enabled Windows DLL** in `vendor/graphite2/` (graphite2
-  1.3.15 built with `-DGRAPHITE2_NTRACING=OFF`, static mingw runtime), so
-  `shape_trace` works out of the box on Windows. See `vendor/graphite2/README.md`.
+- **Cross-platform tracing**: `scripts/build_tracing_lib.py` builds a
+  tracing-enabled graphite2 (`-DGRAPHITE2_NTRACING=OFF`) for the current
+  platform (Windows/macOS/Linux) and verifies `gr_start_logging` works;
+  `.github/workflows/build-native.yml` builds + verifies `shape_trace` on all
+  three OSes in CI; `vendor/graphite2/` now ships a tracing-enabled **Windows
+  DLL and Linux `.so`** (graphite2 1.3.15), so `shape_trace` works out of the
+  box on both. See `vendor/graphite2/README.md`.
 
 ### Fixed
 
 - The loader's vendored-directory discovery now walks up the package's parents
   to find `vendor/graphite2/`, which was broken under the `src/` layout (it
   looked one directory too high, so the vendored library was never found).
+- `scripts/build_tracing_lib.py` no longer appends `.exe` when searching for
+  `libwinpthread-1.dll` (it used to miss the mingw toolchain's copy and could
+  pick up an unrelated one from PATH), and it prefers the canonical
+  `build/src` library over the `gr2fonttest` copy.
 
 ## [0.2.0] - 2026-08-31
 

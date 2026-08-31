@@ -22,23 +22,45 @@ was found.
 
 ## Vendored tracing-enabled build (this repo)
 
-This folder currently ships a **Windows DLL built with tracing support**, which
-is what powers the per-pass shaping trace
+This folder ships **tracing-enabled binaries** for the platforms we build
+locally — they power the per-pass shaping trace
 (`pygraphite2.shape_trace` / `GraphiteFont.start_logging`):
 
-- `libgraphite2.dll` — graphite2 **1.3.15** (upstream commit
-  `ca8d821e60a15b6c24e404c9086992c975d8e1cf`), compiled from
-  [`silnrsi/graphite`](https://github.com/silnrsi/graphite) with
-  **`-DGRAPHITE2_NTRACING=OFF`** (tracing enabled). Most distro/release binaries
-  compile with `GRAPHITE2_NTRACING=ON` (the default), which makes
-  `gr_start_logging` a no-op — that is why we vendor a purpose-built one.
-- `libwinpthread-1.dll` — the only mingw runtime dependency (libgcc/libstdc++
-  are linked statically; the UCRT is part of Windows 10+).
+- `libgraphite2.dll` (+ `libwinpthread-1.dll`) — **Windows** (mingw-w64;
+  libgcc/libstdc++ linked statically; the UCRT is part of Windows 10+).
+- `libgraphite2.so` — **Linux** (built with a conda-forge gcc; depends only on
+  glibc ≥ 2.34).
+- **macOS** is covered by `.github/workflows/build-native.yml` (build + verify
+  on `macos-latest`); run the script below to produce `libgraphite2.dylib`
+  locally if you want it vendored too.
+
+All are graphite2 **1.3.15** (upstream commit
+`ca8d821e60a15b6c24e404c9086992c975d8e1cf`), compiled from
+[`silnrsi/graphite`](https://github.com/silnrsi/graphite) with
+**`-DGRAPHITE2_NTRACING=OFF`** (tracing enabled). Most distro/release binaries
+compile with `GRAPHITE2_NTRACING=ON` (the default), which makes
+`gr_start_logging` a no-op — that is why we vendor purpose-built ones.
 
 ### Rebuilding it
 
+`scripts/build_tracing_lib.py` builds a tracing-enabled copy for the **current**
+platform and drops it into this folder (or `--out DIR`):
+
 ```sh
-# mingw-w64 GCC (e.g. MSYS2 `mingw-w64-ucrt-x86_64-gcc` + cmake)
+python scripts/build_tracing_lib.py                      # into vendor/graphite2/
+python scripts/build_tracing_lib.py --source /path/to/graphite  # reuse a clone
+python scripts/build_tracing_lib.py --out /tmp/gr2lib    # custom output dir
+```
+
+It configures cmake with `-DGRAPHITE2_NTRACING=OFF`, builds, copies the library
+with the correct per-OS name, and verifies `gr_start_logging` actually works.
+On Windows it auto-detects a mingw-w64 toolchain (Strawberry Perl / MSYS2) and
+links the mingw runtime statically; on macOS/Linux it uses the system `cmake`
+and C/C++ compiler. Requirements: `cmake` and a C/C++ compiler.
+
+Equivalent manual build on Windows (mingw-w64 GCC + cmake):
+
+```sh
 cmake -S graphite -B build -G "MinGW Makefiles" \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
