@@ -33,9 +33,13 @@ def read_font_bytes(font: FontSource) -> bytes:
         return fh.read()
 
 
-def _open_ttf(font: FontSource) -> TTFont:
-    """Open a font with fontTools from an in-memory buffer (never a temp file)."""
-    return TTFont(io.BytesIO(read_font_bytes(font)), lazy=True)
+def _open_ttf(font: FontSource, font_number: int = 0) -> TTFont:
+    """Open a font with fontTools from an in-memory buffer (never a temp file).
+
+    ``font_number`` selects a face inside a TrueType collection (``.ttc``); it
+    is ignored for single-font files, so opening face 0 works for both.
+    """
+    return TTFont(io.BytesIO(read_font_bytes(font)), lazy=True, fontNumber=font_number)
 
 
 def has_table(font: FontSource, tag: str) -> bool:
